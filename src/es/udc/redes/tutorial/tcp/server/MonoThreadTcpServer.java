@@ -6,39 +6,72 @@ import java.io.*;
 /**
  * MonoThread TCP echo server.
  */
-public class MonoThreadTcpServer {
+public class MonoThreadTcpServer
+{
 
-    public static void main(String argv[]) {
-        if (argv.length != 1) {
+    public static void main(String argv[])
+    {
+        ServerSocket sSocket = null;
+        int port = -1;
+        Socket cSocket = null;
+        String msg = null;
+
+        if(argv.length != 1)
+        {
             System.err.println("Format: es.udc.redes.tutorial.tcp.server.MonoThreadTcpServer <port>");
             System.exit(-1);
         }
-        try {
+        try
+        {
             // Create a server socket
-            
+            port = Integer.parseInt(argv[0]);
+            sSocket = new ServerSocket(port);
             // Set a timeout of 300 secs
-            
-            while (true) {
-                // Wait for connections
-                
-                // Set the input channel
-                
-                // Set the output channel
-                
-                // Receive the client message
-                
-                // Send response to the client
+            sSocket.setSoTimeout(300000);
 
+            while(true)
+            {
+                // Wait for connections
+                cSocket = sSocket.accept();
+                // Set the input channel
+                BufferedReader input = new BufferedReader(new InputStreamReader(
+                        cSocket.getInputStream()));
+                // Set the output channel
+                PrintWriter output = new PrintWriter(cSocket.getOutputStream(), true);
+                // Receive the client message
+                msg = input.readLine();
+                System.out.println("SERVER: Received " + msg + " from " +
+                        cSocket.getLocalAddress() + ":" + cSocket.getPort());
+                // Send response to the client
+                output.println();
+                System.out.println("SERVER: Sending " + msg +
+                        cSocket.getLocalAddress() + ":" + cSocket.getPort());
                 // Close the streams
+                output.close();
+                input.close();
             }
-        // Uncomment next catch clause after implementing the logic            
-        //} catch (SocketTimeoutException e) {
-        //    System.err.println("Nothing received in 300 secs ");
-        } catch (Exception e) {
+        }
+        catch (SocketTimeoutException e)
+        {
+                System.err.println("Nothing received in 300 secs ");
+        }
+        catch(Exception e)
+        {
             System.err.println("Error: " + e.getMessage());
             e.printStackTrace();
-        } finally {
-	//Close the socket
+        }
+        finally
+        {
+            //Close the socket
+            try
+            {
+                cSocket.close();
+                sSocket.close();
+            }
+            catch(IOException e)
+            {
+                e.printStackTrace();
+            }
         }
     }
 }
