@@ -1,55 +1,49 @@
 package es.udc.redes.tutorial.copy;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.IOException;
+import java.io.*;
 
 public class Copy
 {
-    //java es.udc.redes.tutorial.copy.Copy <fichero origen> <fichero destino>
     public static void main(String[] args) throws IOException
     {
+        BufferedReader readerStream = null;
+        BufferedWriter writerStream = null;
+        BufferedInputStream inputStream = null;
+        BufferedOutputStream outputStream = null;
+        int c;
+
         if(args.length == 2)
         {
             if(args[0].endsWith(".txt") && args[1].endsWith(".txt"))
             {
-                BufferedReader inputStream = null;
-                BufferedWriter outputStream = null;
-                int c;
-
                 try
                 {
-                    inputStream = new BufferedReader(new FileReader(args[0]));
-                    outputStream = new BufferedWriter(new FileWriter(args[1]));
+                    readerStream = new BufferedReader(new FileReader(args[0]));
+                    writerStream = new BufferedWriter(new FileWriter(args[1]));
 
-                    while((c = inputStream.read()) != -1)
+                    while((c = readerStream.read()) != -1)
                     {
-                        outputStream.write(c);
+                        writerStream.write(c);
                     }
-                } finally
+                }
+                catch(FileNotFoundException e)
                 {
-                    if(inputStream != null)
+                    System.err.println("The first file must exist");
+                }
+                finally
+                {
+                    if(readerStream != null)
                     {
-                        inputStream.close();
+                        readerStream.close();
                     }
-                    if(outputStream != null)
+                    if(writerStream != null)
                     {
-                        outputStream.close();
+                        writerStream.close();
                     }
                 }
             }
             else
             {
-                BufferedInputStream inputStream = null;
-                BufferedOutputStream outputStream = null;
-                int c;
-
                 try
                 {
                     inputStream = new BufferedInputStream(new FileInputStream(args[0]));
@@ -59,7 +53,12 @@ public class Copy
                     {
                         outputStream.write(c);
                     }
-                } finally
+                }
+                catch(FileNotFoundException e)
+                {
+                    System.err.println("The first file must exist");
+                }
+                finally
                 {
                     if(inputStream != null)
                     {
@@ -71,6 +70,10 @@ public class Copy
                     }
                 }
             }
+        }
+        else
+        {
+            System.err.println("Format: es.udc.redes.tutorial.copy.Copy <fichero origen> <fichero destino>");
         }
     }
 }
