@@ -44,7 +44,8 @@ public class TcpServer
     {
       System.err.println("Error: " + e.getMessage());
       e.printStackTrace();
-    } finally
+    }
+    finally
     {
       //Close the socket
       try
