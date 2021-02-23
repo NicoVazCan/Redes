@@ -43,8 +43,8 @@ public class MonoThreadTcpServer
                 System.out.println("SERVER: Received " + msg + " from " +
                         cSocket.getLocalAddress() + ":" + cSocket.getPort());
                 // Send response to the client
-                output.println();
-                System.out.println("SERVER: Sending " + msg +
+                output.println(msg);
+                System.out.println("SERVER: Sending " + msg + " to " +
                         cSocket.getLocalAddress() + ":" + cSocket.getPort());
                 // Close the streams
                 output.close();
