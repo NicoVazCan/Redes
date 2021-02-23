@@ -1,7 +1,5 @@
 package es.udc.redes.tutorial.udp.server;
 
-import java.io.BufferedReader;
-import java.lang.reflect.Array;
 import java.net.*;
 
 /**
@@ -15,6 +13,8 @@ public class UdpServer {
         byte[] buf = new byte[1024];
         DatagramPacket packetIn = null;
         DatagramPacket packetOut = null;
+        InetAddress clientDir = null;
+        int clientPort = -1;
 
         if (argv.length != 1) {
             System.err.println("Format: es.udc.redes.tutorial.udp.server.UdpServer <port_number>");
@@ -31,19 +31,20 @@ public class UdpServer {
                 packetIn = new DatagramPacket(buf, buf.length);
                 // Receive the message
                 socket.receive(packetIn);
+                clientDir = packetIn.getAddress();
+                clientPort = packetIn.getPort();
                 System.out.println("SERVER: Received "
                         + new String(packetIn.getData(), 0, packetIn.getLength())
-                        + " from " + packetIn.getAddress().toString() + ":"
-                        + packetIn.getPort());
+                        + " from " + clientDir.toString() + ":"
+                        + clientPort);
                 // Prepare datagram to send response
-                packetOut = new DatagramPacket(buf, buf.length,
-                        packetIn.getAddress(), packetIn.getPort());
+                packetOut = new DatagramPacket(buf, buf.length, clientDir, clientPort);
                 // Send response
                 socket.send(packetOut);
                 System.out.println("SERVER: Sending "
                         + new String(packetOut.getData()) + " to "
-                        + packetOut.getAddress().toString() + ":"
-                        + packetOut.getPort());
+                        + clientDir.toString() + ":"
+                        + clientPort);
             }
         } catch (SocketTimeoutException e) {
             System.err.println("No requests received in 300 secs ");
