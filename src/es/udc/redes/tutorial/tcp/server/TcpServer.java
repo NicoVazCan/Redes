@@ -50,6 +50,7 @@ public class TcpServer
       //Close the socket
       try
       {
+        cSocket.close();
         sSocket.close();
       }
       catch(IOException e)
