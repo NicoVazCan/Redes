@@ -1,7 +1,10 @@
+package es.udc.redes.webserver;
+
 import java.util.Map;
 
 
-public class MyServlet implements MiniServlet {
+public class MyServlet implements MiniServlet
+{
 	
 	/* For the correct operation, a public constructor without parameters 
 	 * is necessary */
