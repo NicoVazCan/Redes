@@ -20,18 +20,22 @@ public class ServerThread extends Thread
 		final String ROOTPATH = "p1-files";
 		final String DEFAULTFILE = "/index.html";
 		final Boolean ALLOW = false;
+		final String ROOTPACK = "es.udc.redes.webserver";
+		final String[] METHODS = {"GET", "HEAD"};
 
 		BufferedReader input = new BufferedReader(new InputStreamReader(in));
 		RequestParts reqParts = RequestParts.processRequest(
 						input, ROOTPATH, DEFAULTFILE);
 		HeadParts headParts = HeadParts.processHead(input);
 		String dynReq;
+		boolean valid = false;
 
 		if(reqParts != null)
 		{
-			dynReq = processDynRequest(reqParts);
-			out.write(printState(reqParts).getBytes());
-			out.write(printHeader(reqParts).getBytes());
+			for(String m: METHODS) { valid |= m.equals(reqParts.method); }
+			dynReq = processDynRequest(reqParts, ROOTPACK);
+			out.write(printState(reqParts, valid).getBytes());
+			out.write(printHeader(reqParts, valid).getBytes());
 			if(reqParts.method.equals("GET"))
 			{
 				out.write(dynReq != null? dynReq.getBytes(): printBody(reqParts));
@@ -39,14 +43,13 @@ public class ServerThread extends Thread
 		}
 	}
 
-	private String processDynRequest(RequestParts reqParts) throws Exception
+	private String processDynRequest(RequestParts reqParts, String root) throws Exception
 	{
-		final String ROOTPACK = "es.udc.redes.webserver";
 		String className = reqParts.file, answer = null;
 
 		if(className.endsWith(".do"))
 		{
-			className = ROOTPACK + '.' +
+			className = root + '.' +
 							className.substring(className.lastIndexOf('/')+1,
 							                    className.lastIndexOf('.'));
 			answer = ServerUtils.processDynRequest(className, reqParts.param);
@@ -54,13 +57,9 @@ public class ServerThread extends Thread
 		return answer;
 	}
 
-	private String printState(RequestParts reqParts)
+	private String printState(RequestParts reqParts, boolean valid)
 	{
-		final String[] METHODS = {"GET", "HEAD"};
 		File file = new File(reqParts.file);
-		boolean valid = false;
-
-		for(String m: METHODS) { valid |= m.equals(reqParts.method); }
 
 		return !valid?          "HTTP/1.0 400 Bad Request\n":
 		       !file.exists()?  "HTTP/1.0 404 Not Found\n":
@@ -68,7 +67,7 @@ public class ServerThread extends Thread
 		                        "HTTP/1.0 200 OK\n";
 	}
 
-	private String printHeader(RequestParts reqParts)
+	private String printHeader(RequestParts reqParts, boolean valid)
 	{
 		File file = new File(reqParts.file);
 		Date fechaAct = new Date(System.currentTimeMillis()),
@@ -85,7 +84,7 @@ public class ServerThread extends Thread
 
 		return "Date: " + fechaAct + "\n" +
 		       "Server: WebServer_64Y\n" +
-		       (file.exists() && file.canRead()?
+		       (valid && file.exists() && file.canRead()?
 						"Last-Modified: " + fechaMod + "\n" +
 						"Content-Length: " + file.length() + "\n" +
 						"Content-Type: " + type + "\n\n": "\n");
