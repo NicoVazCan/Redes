@@ -2,12 +2,14 @@ package es.udc.redes.webserver;
 
 import java.net.*;
 import java.io.*;
-import java.util.Date;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 
 public class ServerThread extends Thread
 {
 	private Socket socket;
+	private Properties config = WebServer.config;
 
 	public ServerThread(Socket s)
 	{
@@ -17,63 +19,165 @@ public class ServerThread extends Thread
 
 	private void processHTTP(InputStream in, OutputStream out) throws Exception
 	{
-		final String ROOTPATH = "p1-files";
-		final String DEFAULTFILE = "/index.html";
-		final Boolean ALLOW = false;
-		final String ROOTPACK = "es.udc.redes.webserver";
-		final String[] METHODS = {"GET", "HEAD"};
+		final String ROOTPATH = config.getProperty("BASE_DIRECTORY", "p1-files");
+		final String DEFAULTFILE = config.getProperty("DEFAULT_FILE", "/index.html");
+		final boolean ALLOW = Boolean.parseBoolean(config.getProperty("ALLOW", "false"));
 
-		BufferedReader input = new BufferedReader(new InputStreamReader(in));
-		RequestParts reqParts = RequestParts.processRequest(
-						input, ROOTPATH, DEFAULTFILE);
-		HeadParts headParts = HeadParts.processHead(input);
-		String dynReq;
-		boolean valid = false;
-
-		if(reqParts != null)
+		try
 		{
-			for(String m: METHODS) { valid |= m.equals(reqParts.method); }
-			dynReq = processDynRequest(reqParts, ROOTPACK);
-			out.write(printState(reqParts, valid).getBytes());
-			out.write(printHeader(reqParts, valid).getBytes());
-			if(reqParts.method.equals("GET"))
+			BufferedReader input = new BufferedReader(new InputStreamReader(in));
+			RequestParts reqParts = RequestParts.processRequest(input, ROOTPATH);
+			HeadParts headParts = HeadParts.processHead(input);
+			String dynReq;
+
+			if(reqParts != null)
 			{
-				out.write(dynReq != null? dynReq.getBytes(): printBody(reqParts));
+				reqParts = manageLsDir(reqParts, ALLOW, DEFAULTFILE, ROOTPATH);
+				dynReq = manageDynPage(reqParts);
+
+				if(dynReq != null)
+				{
+					out.write(dynReq.getBytes());
+				}
+				else
+				{
+					out.write(printState(reqParts,headParts).getBytes());
+					reqParts = manageErrPage(reqParts);
+					out.write(printHeader(reqParts, headParts).getBytes());
+					out.write(printBody(reqParts, headParts));
+				}
 			}
+		}
+		catch(Exception ignore)
+		{
+			out.write(("HTTP/1.0 500 Internal Server Error\n" +
+			           "Date: " + new Date(System.currentTimeMillis()) + "\n" +
+			           "Server: WebServer_64Y\n\n").getBytes());
 		}
 	}
 
-	private String processDynRequest(RequestParts reqParts, String root) throws Exception
+	private boolean isValid(RequestParts reqParts)
 	{
-		String className = reqParts.file, answer = null;
+		final String[] METHODS = {"GET", "HEAD"};
+
+		boolean valid = false;
+
+		for(String m: METHODS) { valid |= m.equals(reqParts.method); }
+
+		return valid;
+	}
+
+	private boolean isModif(RequestParts reqParts, HeadParts headParts)
+	{
+		final SimpleDateFormat toDate =
+						new SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy",
+										new Locale("en_US"));
+
+		String ifModDate = headParts.entries.get("If-Modified-Since");
+
+		try
+		{
+			return (ifModDate == null || !reqParts.file.exists() || !reqParts.file.canRead() ||
+							reqParts.file.isDirectory() ||
+							(new Date(reqParts.file.lastModified())).after(toDate.parse(ifModDate)));
+		}
+		catch(Exception ignored) { return true; }
+	}
+
+	private RequestParts manageLsDir(RequestParts reqParts, boolean allow,
+	                                 String defFile, String rootPath)
+	{
+		RequestParts aux = reqParts;
+		Map<String, String> param;
+		File index;
+
+		if(reqParts.file.isDirectory())
+		{
+			index = new File(reqParts.file.toPath() + defFile);
+
+			if(index.exists())
+			{
+				aux = new RequestParts(reqParts.method, index, reqParts.httpV, reqParts.param);
+			}
+			else if(allow)
+			{
+				param = new HashMap<>();
+
+				param.put("dir", reqParts.file.getPath().replaceFirst(defFile, ""));
+				param.put("root", rootPath);
+
+				aux = new RequestParts("GET", new File("LsServlet.do"),
+								"HTTP/1.0", param);
+			}
+		}
+
+		return aux;
+	}
+
+	private RequestParts manageErrPage(RequestParts reqParts)
+	{
+		final String[] ERROR = {"/error400.html", "/error404.html", "/error403.html"};
+		final String ERRPATH = "p1-files/error";
+		int i = -1;
+
+		if(!isValid(reqParts))
+		{ i = 0; }
+		else if(!reqParts.file.exists())
+		{ i = 1; }
+		else if(reqParts.file.isDirectory() || !reqParts.file.canRead())
+		{ i = 2; }
+
+		return i != -1? new RequestParts("GET",
+					new File(ERRPATH + ERROR[i]), "HTTP/1.0", null):
+						reqParts;
+	}
+
+	private String manageDynPage(RequestParts reqParts) throws Exception
+	{
+		final String ROOTPACK = "es.udc.redes.webserver";
+
+		Date fechaAct = new Date(System.currentTimeMillis());
+		String className = reqParts.file.getName(), state, head, body, answer = null;
+		boolean valid = isValid(reqParts);
 
 		if(className.endsWith(".do"))
 		{
-			className = root + '.' +
-							className.substring(className.lastIndexOf('/')+1,
-							                    className.lastIndexOf('.'));
-			answer = ServerUtils.processDynRequest(className, reqParts.param);
+			className = ROOTPACK + '.' +
+							className.substring(0, className.lastIndexOf('.'));
+
+			state = !valid? "HTTP/1.0 400 Bad Request\n":
+											"HTTP/1.0 200 OK\n";
+			body = ServerUtils.processDynRequest(className, reqParts.param);
+			head = "Date: " + fechaAct + "\n" +
+							"Server: WebServer_64Y\n" +
+							(valid?
+							"Content-Length: " + body.getBytes().length + "\n" +
+							"Content-Type: text/html\n\n": "\n");
+
+			answer = state + head;
+			if(reqParts.method.equals("GET") && valid) { answer += body; }
 		}
+
 		return answer;
 	}
-
-	private String printState(RequestParts reqParts, boolean valid)
+	
+		private String printState(RequestParts reqParts, HeadParts headParts)
 	{
-		File file = new File(reqParts.file);
-
-		return !valid?          "HTTP/1.0 400 Bad Request\n":
-		       !file.exists()?  "HTTP/1.0 404 Not Found\n":
-		       !file.canRead()? "HTTP/1.0 403 Forbidden\n":
-		                        "HTTP/1.0 200 OK\n";
+		return !isValid(reqParts)?                           "HTTP/1.0 400 Bad Request\n":
+					 !isModif(reqParts, headParts)?                "HTTP/1.0 304 Not Modified\n":
+		       !reqParts.file.exists()?                      "HTTP/1.0 404 Not Found\n":
+		       reqParts.file.isDirectory() ||
+						       !reqParts.file.canRead()?             "HTTP/1.0 403 Forbidden\n":
+		                                                     "HTTP/1.0 200 OK\n";
 	}
 
-	private String printHeader(RequestParts reqParts, boolean valid)
+	private String printHeader(RequestParts reqParts, HeadParts headParts)
 	{
-		File file = new File(reqParts.file);
 		Date fechaAct = new Date(System.currentTimeMillis()),
-						fechaMod = new Date(file.lastModified());
-		String type = switch(reqParts.file.substring(
-						reqParts.file.lastIndexOf('.')+1))
+						fechaMod = new Date(reqParts.file.lastModified());
+		boolean valid = isValid(reqParts), modif = isModif(reqParts, headParts);
+		String type = switch(reqParts.file.getName().substring(
+						reqParts.file.getName().lastIndexOf('.')+1))
 		{
 			case "html" -> "text/html";
 			case "txt" -> "text/plain";
@@ -84,23 +188,22 @@ public class ServerThread extends Thread
 
 		return "Date: " + fechaAct + "\n" +
 		       "Server: WebServer_64Y\n" +
-		       (valid && file.exists() && file.canRead()?
+		       (modif && valid && reqParts.file.exists() &&
+						       reqParts.file.canRead() && !reqParts.file.isDirectory()?
 						"Last-Modified: " + fechaMod + "\n" +
-						"Content-Length: " + file.length() + "\n" +
+						"Content-Length: " + reqParts.file.length() + "\n" +
 						"Content-Type: " + type + "\n\n": "\n");
 	}
 
-	private byte[] printBody(RequestParts reqParts)
+	private byte[] printBody(RequestParts reqParts, HeadParts headParts) throws Exception
 	{
-		try
+		if(reqParts.method.equals("GET") && isValid(reqParts) && isModif(reqParts, headParts)
+						&& !reqParts.file.isDirectory())
 		{
 			InputStream file = new FileInputStream(reqParts.file);
 			return file.readAllBytes();
 		}
-		catch(IOException e)
-		{
-			return "".getBytes();
-		}
+		return "".getBytes();
 	}
 
 	public void run()
@@ -111,6 +214,8 @@ public class ServerThread extends Thread
 		{
 			// This code processes HTTP requests and generates
 			// HTTP responses
+			socket.setSoTimeout(300000);
+
 			in = socket.getInputStream();
 			out = socket.getOutputStream();
 
@@ -119,10 +224,10 @@ public class ServerThread extends Thread
 			in.close();
 			out.close();
 		}
-		/*catch(SocketTimeoutException e)
+		catch(SocketTimeoutException e)
 		{
 			System.err.println("Nothing received in 300 secs");
-		}*/
+		}
 		catch(Exception e)
 		{
 			System.err.println("Error: " + e.getMessage());

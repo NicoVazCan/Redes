@@ -8,7 +8,7 @@ public class HeadParts
 {
 	Map<String, String> entries;
 
-	private HeadParts(Map<String, String> entries)
+	HeadParts(Map<String, String> entries)
 	{
 		this.entries = entries;
 	}

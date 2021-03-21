@@ -1,21 +1,59 @@
 package es.udc.redes.webserver;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.util.Properties;
 
 public class WebServer
 {
+    public static Properties config;
+
+    private static Properties initProperties(String file, boolean def) throws Exception
+    {
+        FileInputStream in;
+        FileOutputStream out;
+        Properties config = new Properties();
+
+        if(def)
+        {
+            out = new FileOutputStream(file);
+
+            config.setProperty("PORT", "1111");
+            config.setProperty("DEFAULT_FILE", "/index.html");
+            config.setProperty("BASE_DIRECTORY", "p1-files");
+            config.setProperty("ALLOW", "false");
+
+            config.store(out, "Default server configuration parameters:");
+            out.close();
+        }
+        else
+        {
+            in = new FileInputStream(file);
+
+            config.load(in);
+
+            in.close();
+        }
+
+        return config;
+    }
+
     public static void main(String[] args)
     {
         ServerSocket sSocket = null;
-        int port = 1111;
+        int port;
         Socket cSocket = null;
         es.udc.redes.webserver.ServerThread thread = null;
 
         try
         {
+            config = initProperties("cte/config", false);
+            port = Integer.parseInt(config.getProperty("PORT", "1111"));
             // Create a server socket
             sSocket = new ServerSocket(port);
             // Set a timeout of 300 secs
@@ -53,5 +91,4 @@ public class WebServer
             }
         }
     }
-    
 }
