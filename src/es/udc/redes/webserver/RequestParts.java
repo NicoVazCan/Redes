@@ -1,16 +1,26 @@
 package es.udc.redes.webserver;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
+/**This class stores all information about request line.
+ *
+ * @author 64Y
+ */
 public class RequestParts
 {
 	final String method, httpV;
 	final File file;
 	final Map<String, String> param;
 
+	/**Creates a new instance which contains the parameters.
+	 *
+	 * @param method: The request method.
+	 * @param file: The requested file.
+	 * @param httpV: The request protocol version.
+	 * @param param: The URL parameters.
+	 */
 	RequestParts(String method, File file, String httpV, Map<String, String> param)
 	{
 		this.method = method;
@@ -19,12 +29,19 @@ public class RequestParts
 		this.param = param;
 	}
 
-	public static RequestParts processRequest(BufferedReader in, String root) throws Exception
+	/**Gives a RequestParts instance containing the method, file, protocol, and url
+	 * parameters from the request line.
+	 *
+	 * @param request: The request line.
+	 * @param root: The base directory from the server.
+	 * @return a new instance which contains each part of the line.
+	 */
+	public static RequestParts processRequest(String request, String root)
 	{
 		RequestParts content = null;
 		HashMap<String, String> param;
 		String[] petParts, urlParam, pNameVal;
-		String fileName, request = in.readLine();
+		String fileName;
 		int paramPos;
 		File file;
 

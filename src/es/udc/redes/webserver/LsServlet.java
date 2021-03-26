@@ -19,6 +19,13 @@ public class LsServlet implements MiniServlet
 						parameters.get("root"))) + printEnd();
 	}
 
+	/**Lists all directory files into a html code with the name and URL of each one.
+	 *
+	 * @param dir: the directory to list.
+	 * @param root: the server base directory.
+	 * @return a string containing html code with directory's files name and URL.
+	 * @throws Exception if the directory doesn't exist or can't be opened.
+	 */
 	private String lsDir(String dir, String root) throws Exception
 	{
 		File file;

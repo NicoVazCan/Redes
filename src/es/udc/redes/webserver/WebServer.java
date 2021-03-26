@@ -1,18 +1,30 @@
 package es.udc.redes.webserver;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.Properties;
 
+/**This class runs the main thread which accepts client connections.
+ *
+ * @author 64Y
+ */
 public class WebServer
 {
     public static Properties config;
+    public static FileWriter access, error;
 
+    /**Loads server properties from the given file.
+     *
+     * @param file: The file which contains the server properties.
+     * @param def: If it's true, the file is filled with default properties.
+     * @return a instance of the class Properties with the server properties from the file.
+     * @throws Exception if the file doesn't exist or you don't have the privileges to open and write it.
+     */
     private static Properties initProperties(String file, boolean def) throws Exception
     {
         FileInputStream in;
@@ -42,7 +54,10 @@ public class WebServer
 
         return config;
     }
-
+    /**Opens the access and error log files, accepts client connections and creates a new thread
+     * to attend their request with the socket to listen and write the client, the server properties,
+     * and the log file to write the request historic.
+     */
     public static void main(String[] args)
     {
         ServerSocket sSocket = null;
@@ -53,19 +68,20 @@ public class WebServer
         try
         {
             config = initProperties("cte/config", false);
+            access = new FileWriter("p1-files/log/access.log", true);
+            error = new FileWriter("p1-files/log/error.log", true);
             port = Integer.parseInt(config.getProperty("PORT", "1111"));
-            // Create a server socket
+
             sSocket = new ServerSocket(port);
-            // Set a timeout of 300 secs
+
             sSocket.setSoTimeout(300000);
 
             while(true)
             {
-                // Wait for connections
                 cSocket = sSocket.accept();
-                // Create a ServerThread object, with the new connection as parameter
-                thread = new ServerThread(cSocket);
-                // Initiate thread using the start() method
+
+                thread = new ServerThread(cSocket, config, access, error);
+
                 thread.start();
             }
         }
@@ -83,6 +99,8 @@ public class WebServer
             //Close the socket
             try
             {
+                access.close();
+                error.close();
                 sSocket.close();
             }
             catch(IOException e)
